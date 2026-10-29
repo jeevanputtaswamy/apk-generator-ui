@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>1-Click Web-to-APK Generator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4">
+  <div class="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+    <h1 class="text-xl font-bold text-white mb-1">Web-to-APK Generator</h1>
+    <p class="text-xs text-slate-400 mb-6">Enter your Web App URL to compile a store-ready APK.</p>
+
+    <form id="apkForm" class="space-y-4">
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Target Web URL (HTTPS)</label>
+        <input id="appUrl" type="url" required placeholder="https://myapp.com"
+          class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white" />
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">App Name</label>
+        <input id="appName" type="text" required placeholder="My App"
+          class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white" />
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Package ID</label>
+        <input id="packageId" type="text" required placeholder="com.company.myapp"
+          class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white font-mono" />
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">App Icon URL</label>
+        <input id="iconUrl" type="url" placeholder="https://myapp.com/icon.png"
+          class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white" />
+      </div>
+
+      <button type="submit" id="submitBtn"
+        class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold text-sm text-white shadow-lg transition-all">
+        Generate APK Now
+      </button>
+    </form>
+
+    <!-- Live Progress Modal -->
+    <div id="progressModal" class="hidden mt-6 p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-3">
+      <div class="flex justify-between text-xs">
+        <span id="stageLabel" class="font-semibold text-indigo-400">Connecting to Build Engine...</span>
+        <span id="progressPct" class="font-mono text-white">10%</span>
+      </div>
+      <div class="w-full bg-slate-900 h-2 rounded-full overflow-hidden">
+        <div id="progressBar" class="bg-indigo-500 h-full w-[10%] transition-all duration-300"></div>
+      </div>
+      <a id="downloadBtn" href="#" class="hidden block w-full py-2.5 bg-emerald-500 text-slate-950 font-bold rounded-lg text-center text-xs">
+        Download Compiled .APK
+      </a>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('apkForm');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        appUrl: document.getElementById('appUrl').value,
+        appName: document.getElementById('appName').value,
+        packageId: document.getElementById('packageId').value,
+        iconUrl: document.getElementById('iconUrl').value
+      };
+
+      document.getElementById('progressModal').classList.remove('hidden');
+      const res = await fetch('/api/build', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      
+      // Auto-poll status every 5 seconds
+      const timer = setInterval(async () => {
+        const poll = await fetch('/api/status/' + data.buildId);
+        const status = await poll.json();
+        document.getElementById('stageLabel').innerText = status.stage;
+        document.getElementById('progressPct').innerText = status.progress + '%';
+        document.getElementById('progressBar').style.width = status.progress + '%';
+        
+        if (status.status === 'ready') {
+          clearInterval(timer);
+          const dl = document.getElementById('downloadBtn');
+          dl.href = status.downloadUrl;
+          dl.classList.remove('hidden');
+        }
+      }, 5000);
+    });
+  </script>
+</body>
+</html>
